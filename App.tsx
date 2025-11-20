@@ -1,6 +1,5 @@
-
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Student, Instructor, Class, ActiveView, Expense, AttendanceStatus, Service, StudentLabel, Theme, ColorTheme, CurrentUser, UserRole, AdminUser, Enrollment, AppDataBackup } from './types';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Student, Instructor, Class, Expense, Service, StudentLabel, AdminUser, ActiveView, CurrentUser, UserRole, AttendanceStatus, Enrollment, AppDataBackup, Theme, ColorTheme } from './types';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import StudentManagement from './components/StudentManagement';
@@ -12,12 +11,12 @@ import Settings from './components/Settings';
 import Login from './components/Login';
 import StudentDashboard from './components/StudentDashboard';
 import OnboardingGuide from './components/OnboardingGuide';
-import { Menu, Loader2, Cloud, CloudOff, CheckCircle2 } from 'lucide-react';
 import { dataService } from './services/dataService';
 import { isCloudEnabled } from './lib/supabaseClient';
+import { Loader2, CheckCircle2, CloudOff, Menu } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
-// Color Palettes Definition
+// Color Palettes
 const colorPalettes: Record<ColorTheme, { primary: string; secondary: string; light: string; accent: string; bg: string }> = {
     nature: { primary: '#4A5C58', secondary: '#8AA39B', light: '#D4E0DC', accent: '#C2958F', bg: '#F7F9F8' },
     ocean: { primary: '#0f766e', secondary: '#2dd4bf', light: '#ccfbf1', accent: '#f59e0b', bg: '#f0fdfa' },
@@ -25,31 +24,24 @@ const colorPalettes: Record<ColorTheme, { primary: string; secondary: string; li
     sunset: { primary: '#c2410c', secondary: '#fb923c', light: '#ffedd5', accent: '#0ea5e9', bg: '#fff7ed' },
 };
 
-// Initial Data (Fallbacks)
-const initialStudents: Student[] = [
-  { id: 's1', name: 'Alice Johnson', email: 'alice@email.com', joinDate: '2023-01-15', notes: 'Dor lombar, quer melhorar a força do core.', avatarUrl: 'https://picsum.photos/seed/alice/200' },
-];
-const initialAdmins: AdminUser[] = [
-    { id: 'adm1', name: 'Administrador', email: 'admin@pilaris.com', password: 'admin' }
-];
+// Initial Fallback Data
+const initialStudents: Student[] = [];
+const initialAdmins: AdminUser[] = [];
 const initialInstructors: Instructor[] = [];
+const initialClasses: Class[] = [];
 const initialExpenses: Expense[] = [];
-const initialServices: Service[] = [
-    { id: 'serv1', name: 'Pilates', price: 25 },
-    { id: 'serv2', name: 'Fisioterapia', price: 50 },
-];
+const initialServices: Service[] = [];
 const initialStudentLabels: StudentLabel[] = [];
 
-
 const App: React.FC = () => {
-    // Loading State
-    const [isLoadingData, setIsLoadingData] = useState(true);
+    // --- States ---
+    const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-
     const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
     const [activeView, setActiveView] = useState<ActiveView>(ActiveView.DASHBOARD);
-    
-    // Data States
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [showGuide, setShowGuide] = useState(false);
+
     const [students, setStudents] = useState<Student[]>([]);
     const [admins, setAdmins] = useState<AdminUser[]>([]);
     const [instructors, setInstructors] = useState<Instructor[]>([]);
@@ -57,35 +49,22 @@ const App: React.FC = () => {
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [services, setServices] = useState<Service[]>([]);
     const [studentLabels, setStudentLabels] = useState<StudentLabel[]>([]);
-    
-    // UI States
+
     const [theme, setTheme] = useState<Theme>('light');
     const [colorTheme, setColorTheme] = useState<ColorTheme>('nature');
-    const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-    const [showGuide, setShowGuide] = useState(false);
 
-    // --- LOAD DATA EFFECT ---
+    // --- Load Data ---
     useEffect(() => {
         const loadAll = async () => {
-            setIsLoadingData(true);
-            
-            // Load Theme prefs locally (sync)
-            const savedTheme = window.localStorage.getItem('pilates_theme') as Theme || 'light';
-            let savedColorRaw = window.localStorage.getItem('pilates_color_theme') || 'nature';
-            if (savedColorRaw === 'berry') savedColorRaw = 'royal'; // Legacy support
-
-            setTheme(savedTheme);
-            setColorTheme(savedColorRaw as ColorTheme);
-
-            // Load Data (Async DB or Local)
+            setIsLoading(true);
             const [s, a, i, c, e, serv, l] = await Promise.all([
                 dataService.getStudents(initialStudents),
                 dataService.getAdmins(initialAdmins),
                 dataService.getInstructors(initialInstructors),
-                dataService.getClasses([]),
+                dataService.getClasses(initialClasses),
                 dataService.getExpenses(initialExpenses),
                 dataService.getServices(initialServices),
-                dataService.getLabels(initialStudentLabels)
+                dataService.getLabels(initialStudentLabels),
             ]);
 
             setStudents(s);
@@ -95,393 +74,130 @@ const App: React.FC = () => {
             setExpenses(e);
             setServices(serv);
             setStudentLabels(l);
-
-            setIsLoadingData(false);
+            setIsLoading(false);
         };
         loadAll();
     }, []);
 
-    // --- SAVE DATA EFFECTS ---
-    // Helper to handle save with indicator
+    // --- Auto Save ---
     const handleSave = useCallback(async (saveFn: () => Promise<void>) => {
         setIsSaving(true);
-        try {
-            await saveFn();
-        } finally {
-            setTimeout(() => setIsSaving(false), 800); // Small delay for visual feedback
-        }
+        try { await saveFn(); } finally { setTimeout(() => setIsSaving(false), 500); }
     }, []);
 
-    useEffect(() => { if(!isLoadingData) handleSave(() => dataService.saveStudents(students)); }, [students, isLoadingData, handleSave]);
-    useEffect(() => { if(!isLoadingData) handleSave(() => dataService.saveAdmins(admins)); }, [admins, isLoadingData, handleSave]);
-    useEffect(() => { if(!isLoadingData) handleSave(() => dataService.saveInstructors(instructors)); }, [instructors, isLoadingData, handleSave]);
-    useEffect(() => { if(!isLoadingData) handleSave(() => dataService.saveClasses(classes)); }, [classes, isLoadingData, handleSave]);
-    useEffect(() => { if(!isLoadingData) handleSave(() => dataService.saveExpenses(expenses)); }, [expenses, isLoadingData, handleSave]);
-    useEffect(() => { if(!isLoadingData) handleSave(() => dataService.saveServices(services)); }, [services, isLoadingData, handleSave]);
-    useEffect(() => { if(!isLoadingData) handleSave(() => dataService.saveLabels(studentLabels)); }, [studentLabels, isLoadingData, handleSave]);
-    
-    // Theme Effects
+    useEffect(() => { if (!isLoading) handleSave(() => dataService.saveStudents(students)); }, [students, isLoading, handleSave]);
+    useEffect(() => { if (!isLoading) handleSave(() => dataService.saveAdmins(admins)); }, [admins, isLoading, handleSave]);
+    useEffect(() => { if (!isLoading) handleSave(() => dataService.saveInstructors(instructors)); }, [instructors, isLoading, handleSave]);
+    useEffect(() => { if (!isLoading) handleSave(() => dataService.saveClasses(classes)); }, [classes, isLoading, handleSave]);
+    useEffect(() => { if (!isLoading) handleSave(() => dataService.saveExpenses(expenses)); }, [expenses, isLoading, handleSave]);
+    useEffect(() => { if (!isLoading) handleSave(() => dataService.saveServices(services)); }, [services, isLoading, handleSave]);
+    useEffect(() => { if (!isLoading) handleSave(() => dataService.saveLabels(studentLabels)); }, [studentLabels, isLoading, handleSave]);
+
+    // --- Theme ---
     useEffect(() => {
-        const root = window.document.documentElement;
-        root.classList.remove(theme === 'light' ? 'dark' : 'light');
-        root.classList.add(theme);
+        document.documentElement.classList.remove(theme === 'light' ? 'dark' : 'light');
+        document.documentElement.classList.add(theme);
         window.localStorage.setItem('pilates_theme', theme);
     }, [theme]);
 
     useEffect(() => {
         const colors = colorPalettes[colorTheme];
         const root = document.documentElement;
-        root.style.setProperty('--color-brand-primary', colors.primary);
-        root.style.setProperty('--color-brand-secondary', colors.secondary);
-        root.style.setProperty('--color-brand-light', colors.light);
-        root.style.setProperty('--color-brand-accent', colors.accent);
-        root.style.setProperty('--color-brand-bg', colors.bg);
+        Object.entries(colors).forEach(([key, value]) => root.style.setProperty(`--color-brand-${key}`, value));
         window.localStorage.setItem('pilates_color_theme', colorTheme);
     }, [colorTheme]);
 
-
+    // --- Login / Logout ---
     const handleLogin = (role: UserRole, id?: string) => {
         if (role === UserRole.ADMIN && id) {
             const admin = admins.find(a => a.id === id);
-            if (admin) {
-                setCurrentUser({ role, name: admin.name });
-                setActiveView(ActiveView.DASHBOARD);
-            }
+            if (admin) setCurrentUser({ role, name: admin.name });
         } else if (role === UserRole.STUDENT && id) {
             const student = students.find(s => s.id === id);
-            if (student) {
-                setCurrentUser({ role, studentId: id, name: student.name });
-                setActiveView(ActiveView.DASHBOARD);
-            }
+            if (student) setCurrentUser({ role, studentId: id, name: student.name });
         }
-
-        const hasSeenGuide = window.localStorage.getItem('pilaris_guide_seen_v1');
-        if (!hasSeenGuide) {
-            setShowGuide(true);
-        }
-    };
-
-    const handleStudentRegister = (name: string, email: string) => {
-        const newStudent: Student = {
-            id: `s${Date.now()}`,
-            name,
-            email,
-            joinDate: new Date().toISOString().split('T')[0],
-            notes: '',
-            avatarUrl: `https://picsum.photos/seed/${name.split(' ')[0]}/200`
-        };
-        setStudents(prev => [...prev, newStudent]);
-        setCurrentUser({ role: UserRole.STUDENT, studentId: newStudent.id, name: newStudent.name });
         setActiveView(ActiveView.DASHBOARD);
-        setShowGuide(true);
+    };
+    const handleLogout = () => setCurrentUser(null);
+
+    // --- CRUD Helpers ---
+    const addStudent = (s: Omit<Student, 'id'>) => setStudents(prev => [...prev, { ...s, id: `s${Date.now()}` }]);
+    const addAdmin = (a: Omit<AdminUser, 'id'>) => setAdmins(prev => [...prev, { ...a, id: `adm${Date.now()}` }]);
+    const addInstructor = (i: Omit<Instructor, 'id'>) => setInstructors(prev => [...prev, { ...i, id: `i${Date.now()}` }]);
+    const addExpense = (e: Omit<Expense, 'id'>) => setExpenses(prev => [...prev, { ...e, id: `exp${Date.now()}` }]);
+    const addService = (s: Omit<Service, 'id'>) => setServices(prev => [...prev, { ...s, id: `serv${Date.now()}` }]);
+    const addLabel = (l: Omit<StudentLabel, 'id'>) => setStudentLabels(prev => [...prev, { ...l, id: `lab${Date.now()}` }]);
+
+    const updateStudent = (s: Student) => setStudents(prev => prev.map(x => x.id === s.id ? s : x));
+    const updateService = (s: Service) => setServices(prev => prev.map(x => x.id === s.id ? s : x));
+
+    const removeService = (id: string) => setServices(prev => prev.filter(x => x.id !== id));
+    const removeLabel = (id: string) => setStudentLabels(prev => prev.filter(x => x.id !== id));
+
+    // --- Backup / Restore ---
+    const getBackup = (): AppDataBackup => ({
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        data: { students, instructors, classes, expenses, services, studentLabels, admins }
+    });
+    const restoreBackup = (backup: AppDataBackup) => {
+        setStudents(backup.data.students);
+        setInstructors(backup.data.instructors);
+        setClasses(backup.data.classes);
+        setExpenses(backup.data.expenses);
+        setServices(backup.data.services);
+        setStudentLabels(backup.data.studentLabels);
+        setAdmins(backup.data.admins);
     };
 
-    const handleAdminRegister = (name: string, email: string, password: string) => {
-        const newAdmin: AdminUser = {
-            id: `adm${Date.now()}`,
-            name,
-            email,
-            password
-        };
-        setAdmins(prev => [...prev, newAdmin]);
-        setCurrentUser({ role: UserRole.ADMIN, name: newAdmin.name });
-        setActiveView(ActiveView.DASHBOARD);
-        setShowGuide(true);
-    };
-
-    const handleLogout = () => {
-        setCurrentUser(null);
-    };
-
-    const handleCloseGuide = () => {
-        setShowGuide(false);
-        window.localStorage.setItem('pilaris_guide_seen_v1', 'true');
-    };
-
-    const handleOpenGuide = () => {
-        setShowGuide(true);
-    }
-
-    const addStudent = useCallback((student: Omit<Student, 'id' | 'avatarUrl'>) => {
-        const newStudent: Student = {
-            ...student,
-            id: `s${Date.now()}`,
-            avatarUrl: `https://picsum.photos/seed/${student.name.split(' ')[0]}/200`
-        };
-        setStudents(prev => [...prev, newStudent]);
-    }, []);
-    
-    const updateStudent = useCallback((updatedStudent: Student) => {
-      setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
-    }, []);
-
-    const addInstructor = useCallback((instructor: Omit<Instructor, 'id' | 'avatarUrl'>) => {
-        const newInstructor: Instructor = {
-            ...instructor,
-            id: `i${Date.now()}`,
-            avatarUrl: `https://picsum.photos/seed/${instructor.name.split(' ')[0]}/200`
-        };
-        setInstructors(prev => [...prev, newInstructor]);
-    }, []);
-    
-    const addExpense = useCallback((expense: Omit<Expense, 'id'>) => {
-        const newExpense: Expense = { ...expense, id: `e${Date.now()}` };
-        setExpenses(prev => [...prev, newExpense]);
-    }, []);
-
-    const updateClassesForDay = useCallback((date: string, updatedClassesForDay: Class[]) => {
-        setClasses(prev => {
-            const otherDaysClasses = prev.filter(c => c.date !== date);
-            return [...otherDaysClasses, ...updatedClassesForDay];
-        });
-    }, []);
-
-    const handleBatchScheduleUpdate = useCallback((dates: string[], hours: string[], capacity: number, serviceId: string | null) => {
-        setClasses(prev => {
-            let newClasses = [...prev];
-            
-            dates.forEach(date => {
-                hours.forEach(hour => {
-                    const existingIndex = newClasses.findIndex(c => c.date === date && c.id === hour);
-                    
-                    if (existingIndex >= 0) {
-                        const existingClass = newClasses[existingIndex];
-                        const currentEnrollments = existingClass.enrollments || [];
-                        
-                        let newEnrollments = [...currentEnrollments];
-                        if (newEnrollments.length < capacity) {
-                            const slotsToAdd = capacity - newEnrollments.length;
-                            for (let i = 0; i < slotsToAdd; i++) {
-                                newEnrollments.push({
-                                    studentId: null,
-                                    status: AttendanceStatus.PENDING,
-                                    price: 0
-                                });
-                            }
-                        }
-                        
-                        newClasses[existingIndex] = {
-                            ...existingClass,
-                            capacity: capacity,
-                            serviceId: serviceId !== null ? serviceId : existingClass.serviceId,
-                            enrollments: newEnrollments
-                        };
-                    } else {
-                        const newEnrollments: Enrollment[] = Array(capacity).fill(null).map(() => ({
-                            studentId: null,
-                            status: AttendanceStatus.PENDING,
-                            price: 0
-                        }));
-
-                        newClasses.push({
-                            id: hour,
-                            date: date,
-                            serviceId: serviceId, 
-                            capacity: capacity,
-                            enrollments: newEnrollments
-                        });
-                    }
-                });
-            });
-
-            return newClasses;
-        });
-    }, []);
-    
-    const addService = useCallback((service: Omit<Service, 'id'>) => {
-        const newService: Service = { ...service, id: `serv${Date.now()}` };
-        setServices(prev => [...prev, newService]);
-    }, []);
-    
-    const updateService = useCallback((updatedService: Service) => {
-        setServices(prev => prev.map(s => s.id === updatedService.id ? updatedService : s));
-    }, []);
-
-    const removeService = useCallback((serviceId: string) => {
-        setServices(prev => prev.filter(s => s.id !== serviceId));
-    }, []);
-    
-    const addStudentLabel = useCallback((label: Omit<StudentLabel, 'id'>) => {
-        const newLabel: StudentLabel = { ...label, id: `lab${Date.now()}` };
-        setStudentLabels(prev => [...prev, newLabel]);
-    }, []);
-
-    const removeStudentLabel = useCallback((labelId: string) => {
-        setStudentLabels(prev => prev.filter(l => l.id !== labelId));
-    }, []);
-
-    const handleImportData = useCallback((backupData: AppDataBackup) => {
-        try {
-            setStudents(backupData.data.students);
-            setInstructors(backupData.data.instructors);
-            setAdmins(backupData.data.admins);
-            setExpenses(backupData.data.expenses);
-            setServices(backupData.data.services);
-            setStudentLabels(backupData.data.studentLabels);
-            setClasses(backupData.data.classes);
-
-            alert('Dados restaurados com sucesso!');
-            window.location.reload();
-        } catch (error) {
-            console.error("Failed to import data", error);
-            alert("Erro ao importar dados.");
-        }
-    }, []);
-
-    const getBackupData = useCallback((): AppDataBackup => {
-        return {
-            version: "1.0",
-            timestamp: new Date().toISOString(),
-            data: { students, instructors, classes, expenses, services, studentLabels, admins }
-        };
-    }, [students, instructors, classes, expenses, services, studentLabels, admins]);
-
-
+    // --- View Content ---
     const viewContent = useMemo(() => {
         if (!currentUser) return null;
-
         const isAdmin = currentUser.role === UserRole.ADMIN;
 
         switch (activeView) {
-            case ActiveView.STUDENTS:
-                return isAdmin ? <StudentManagement students={students} addStudent={addStudent} updateStudent={updateStudent} classes={[]} /> : null;
-            case ActiveView.SCHEDULE:
-                const classesWithDate = classes.map(c => ({ ...c, date: new Date(c.date + 'T00:00:00') }));
-                return <Schedule 
-                    allDayClasses={classes} 
-                    students={students} 
-                    services={services} 
-                    updateClassesForDay={updateClassesForDay}
-                    onBatchUpdate={handleBatchScheduleUpdate}
-                    isReadOnly={!isAdmin}
-                    currentStudentId={currentUser.studentId}
-                />;
-            case ActiveView.INSTRUCTORS:
-                return isAdmin ? <InstructorManagement instructors={instructors} addInstructor={addInstructor} /> : null;
-            case ActiveView.EXPENSES:
-                return isAdmin ? <Expenses expenses={expenses} addExpense={addExpense} /> : null;
-            case ActiveView.ACCOUNTING:
-                const accountingClasses = classes.map(c => ({ ...c, date: new Date(c.date + 'T00:00:00') }));
-                return isAdmin ? <Accounting classes={accountingClasses} expenses={expenses} /> : null;
-            case ActiveView.SETTINGS:
-                return isAdmin ? <Settings 
-                    theme={theme} 
-                    setTheme={setTheme}
-                    colorTheme={colorTheme}
-                    setColorTheme={setColorTheme}
-                    services={services}
-                    addService={addService}
-                    updateService={updateService}
-                    removeService={removeService}
-                    studentLabels={studentLabels}
-                    addStudentLabel={addStudentLabel}
-                    removeStudentLabel={removeStudentLabel}
-                    onImportData={handleImportData}
-                    onExportData={getBackupData}
-                /> : null;
+            case ActiveView.STUDENTS: return isAdmin ? <StudentManagement students={students} addStudent={addStudent} updateStudent={updateStudent} classes={classes}/> : null;
+            case ActiveView.SCHEDULE: return <Schedule allDayClasses={classes} students={students} updateClassesForDay={() => {}} isReadOnly={!isAdmin} currentStudentId={currentUser.studentId}/>;
+            case ActiveView.INSTRUCTORS: return isAdmin ? <InstructorManagement instructors={instructors} addInstructor={addInstructor} /> : null;
+            case ActiveView.EXPENSES: return isAdmin ? <Expenses expenses={expenses} addExpense={addExpense} /> : null;
+            case ActiveView.ACCOUNTING: return isAdmin ? <Accounting classes={classes} expenses={expenses} /> : null;
+            case ActiveView.SETTINGS: return isAdmin ? <Settings theme={theme} setTheme={setTheme} colorTheme={colorTheme} setColorTheme={setColorTheme} services={services} addService={addService} updateService={updateService} removeService={removeService} studentLabels={studentLabels} addStudentLabel={addLabel} removeStudentLabel={removeLabel} onImportData={restoreBackup} onExportData={getBackup} /> : null;
             case ActiveView.DASHBOARD:
-            default:
-                 const dashboardClasses = classes.map(c => ({
-                    ...c,
-                    date: new Date(c.date + 'T00:00:00')
-                 })).filter(c => c.serviceId);
-
-                 if (!isAdmin && currentUser.studentId) {
-                    const myStudent = students.find(s => s.id === currentUser.studentId);
-                    if (!myStudent) return <div>Erro: Perfil não encontrado.</div>
-                    return <StudentDashboard student={myStudent} classes={dashboardClasses} />
-                 }
-
-                return <Dashboard students={students} classes={dashboardClasses} instructors={instructors} expenses={expenses} services={services} />;
+            default: return isAdmin ? <Dashboard students={students} classes={classes} instructors={instructors} expenses={expenses} services={services} /> : <StudentDashboard student={students.find(s => s.id === currentUser.studentId)!} classes={classes} />;
         }
-    }, [activeView, students, classes, instructors, expenses, addStudent, addInstructor, addExpense, updateStudent, services, studentLabels, theme, colorTheme, updateClassesForDay, addService, updateService, removeService, addStudentLabel, removeStudentLabel, currentUser, handleBatchScheduleUpdate, handleImportData, getBackupData]);
+    }, [activeView, currentUser, students, instructors, classes, expenses, services, studentLabels, theme, colorTheme]);
 
-    if (isLoadingData) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-brand-bg dark:bg-gray-900">
-                <div className="flex flex-col items-center">
-                    <Loader2 className="w-10 h-10 text-brand-primary animate-spin mb-4" />
-                    <p className="text-gray-600 dark:text-gray-300">Carregando seus dados...</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (!currentUser) {
-        return <Login 
-            students={students} 
-            admins={admins}
-            onLogin={handleLogin} 
-            onRegister={handleStudentRegister} 
-            onAdminRegister={handleAdminRegister}
-        />;
-    }
+    // --- Loading Screen ---
+    if (isLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="animate-spin w-10 h-10" /></div>;
+    if (!currentUser) return <Login students={students} admins={admins} onLogin={handleLogin} onRegister={addStudent} onAdminRegister={addAdmin} />;
 
     return (
-        <div className="flex h-screen bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
-            {/* Global Toast Notifications */}
-            <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-            
-            <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out transform lg:relative lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} dark:bg-gray-800 dark:border-r dark:border-gray-700`}>
-               <Sidebar 
-                    activeView={activeView} 
-                    setActiveView={setActiveView} 
-                    closeSidebar={() => setSidebarOpen(false)} 
-                    userRole={currentUser.role}
-                    onLogout={handleLogout}
-                    onOpenGuide={handleOpenGuide}
-                />
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+            <Toaster position="top-right" />
+            <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0`}>
+                <Sidebar activeView={activeView} setActiveView={setActiveView} closeSidebar={() => setSidebarOpen(false)} userRole={currentUser.role} onLogout={handleLogout} onOpenGuide={() => setShowGuide(true)} />
             </div>
-            
             <main className="flex-1 flex flex-col overflow-hidden">
-                <header className="flex items-center justify-between p-4 bg-white border-b lg:hidden dark:bg-gray-800 dark:border-gray-700">
-                    <div className="flex items-center">
-                        <svg className="w-8 h-8 text-brand-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-                            <path d="M20 3v4" />
-                            <path d="M22 5h-4" />
-                        </svg>
-                        <h1 className="ml-2 text-xl font-bold text-gray-800 dark:text-gray-100">PilarisControl</h1>
-                    </div>
-                    <button onClick={() => setSidebarOpen(true)} className="text-gray-600 dark:text-gray-300">
-                        <Menu size={24} />
-                    </button>
+                <header className="flex items-center justify-between p-4 bg-white border-b lg:hidden">
+                    <h1 className="text-xl font-bold">PilarisControl</h1>
+                    <button onClick={() => setSidebarOpen(true)}><Menu /></button>
                 </header>
-                
-                <div className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8 bg-brand-bg dark:bg-gray-900 transition-colors duration-200">
-                    {/* Cloud Status Indicator */}
-                    <div className="mb-4 flex items-center justify-end space-x-2">
+                <div className="flex-1 overflow-auto p-4">
+                    <div className="flex justify-end mb-4">
                         {isCloudEnabled ? (
-                            <div className={`flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors ${isSaving ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 size={12} className="animate-spin mr-2" />
-                                        Sincronizando...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle2 size={12} className="mr-2" />
-                                        Salvo na Nuvem
-                                    </>
-                                )}
+                            <div className={`px-3 py-1 rounded-full text-xs font-medium ${isSaving ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                {isSaving ? <> <Loader2 className="animate-spin mr-2 w-3 h-3"/> Sincronizando...</> : <> <CheckCircle2 className="mr-1 w-3 h-3"/> Salvo na Nuvem</>}
                             </div>
                         ) : (
-                            <div className="flex items-center px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">
-                                <CloudOff size={12} className="mr-2" />
-                                Modo Offline (Local)
+                            <div className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">
+                                <CloudOff className="mr-1 w-3 h-3"/> Modo Offline
                             </div>
                         )}
                     </div>
-
                     {viewContent}
                 </div>
             </main>
-
-            <OnboardingGuide 
-                isOpen={showGuide} 
-                onClose={handleCloseGuide} 
-                role={currentUser.role} 
-            />
+            <OnboardingGuide isOpen={showGuide} onClose={() => setShowGuide(false)} role={currentUser.role} />
         </div>
     );
 };
