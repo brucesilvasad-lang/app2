@@ -18,6 +18,7 @@ async function loadData<T>(tableName: string, localKey: string, initialData: T):
         try {
             const { data, error } = await supabase.from(tableName).select('*');
             if (error) throw error;
+
             if (data && data.length > 0) return data as unknown as T;
         } catch (err) {
             console.warn(`Erro ao carregar ${tableName} da nuvem, tentando local...`, err);
@@ -45,10 +46,11 @@ async function saveData(tableName: string, localKey: string, data: any[], format
         try {
             if (data.length > 0) {
                 const upsertData = formatFn ? data.map(formatFn) : data;
-                const { error: upsertError } = await supabase.from(tableName).upsert(upsertData, { ignoreDuplicates: true });
+                const { error: upsertError } = await supabase.from(tableName).upsert(upsertData);
                 if (upsertError) throw upsertError;
             }
 
+            // Delete automático (exceto classes)
             if (tableName !== 'classes') {
                 const { data: dbData, error: fetchError } = await supabase.from(tableName).select('id');
                 if (fetchError) throw fetchError;
@@ -74,7 +76,6 @@ async function saveData(tableName: string, localKey: string, data: any[], format
 export const dataService = {
     getStudents: (initial: Student[]) => loadData<Student[]>('students', KEYS.STUDENTS, initial),
     saveStudents: (data: Student[]) => saveData('students', KEYS.STUDENTS, data, item => ({
-        id: item.id,
         name: item.name ?? '',
         email: item.email ?? '',
         password: item.password ?? '',
@@ -86,7 +87,6 @@ export const dataService = {
 
     getInstructors: (initial: Instructor[]) => loadData<Instructor[]>('instructors', KEYS.INSTRUCTORS, initial),
     saveInstructors: (data: Instructor[]) => saveData('instructors', KEYS.INSTRUCTORS, data, item => ({
-        id: item.id,
         name: item.name ?? '',
         email: item.email ?? '',
         password: item.password ?? '',
@@ -94,10 +94,9 @@ export const dataService = {
 
     getClasses: (initial: Class[]) => loadData<Class[]>('classes', KEYS.CLASSES, initial),
     saveClasses: (data: Class[]) => saveData('classes', KEYS.CLASSES, data, item => ({
-        id: item.id,
         class_name: item.class_name ?? '',
-        instructor_id: item.instructor_id ?? null,
-        date: item.date ?? '',
+        instructor_id: item.instructorId ?? null,
+        date: item.date ?? new Date().toISOString(),
         enrollments: item.enrollments ?? [],
         serviceId: item.serviceId ?? null,
         capacity: item.capacity ?? 0,
@@ -105,29 +104,24 @@ export const dataService = {
 
     getExpenses: (initial: Expense[]) => loadData<Expense[]>('expenses', KEYS.EXPENSES, initial),
     saveExpenses: (data: Expense[]) => saveData('expenses', KEYS.EXPENSES, data, item => ({
-        id: item.id,
         description: item.description ?? '',
         amount: item.amount ?? 0,
-        date: item.date ?? '',
+        date: item.date ?? new Date().toISOString(),
     })),
 
     getServices: (initial: Service[]) => loadData<Service[]>('services', KEYS.SERVICES, initial),
     saveServices: (data: Service[]) => saveData('services', KEYS.SERVICES, data, item => ({
-        id: item.id,
         name: item.name ?? '',
         price: item.price ?? 0,
     })),
 
     getLabels: (initial: StudentLabel[]) => loadData<StudentLabel[]>('student_labels', KEYS.LABELS, initial),
     saveLabels: (data: StudentLabel[]) => saveData('student_labels', KEYS.LABELS, data, item => ({
-        id: item.id,
-        name: item.name ?? '',
-        color: item.color ?? '#FFFFFF',
+        label: item.label ?? '',
     })),
 
     getAdmins: (initial: AdminUser[]) => loadData<AdminUser[]>('admins', KEYS.ADMINS, initial),
     saveAdmins: (data: AdminUser[]) => saveData('admins', KEYS.ADMINS, data, item => ({
-        id: item.id,
         name: item.name ?? '',
         email: item.email ?? '',
         password: item.password ?? '',
@@ -136,8 +130,8 @@ export const dataService = {
 
     // --- Funções de filtro seguras ---
     filterAdminsByRole: (admins: AdminUser[], role: string) =>
-        admins.filter(admin => (admin.role ?? '').toLowerCase() === role.toLowerCase()),
+        admins.filter(admin => (admin.role ?? '').toLowerCase() === (role ?? '').toLowerCase()),
 
     filterStudentsByName: (students: Student[], name: string) =>
-        students.filter(student => (student.name ?? '').toLowerCase().includes(name.toLowerCase())),
+        students.filter(student => (student.name ?? '').toLowerCase().includes((name ?? '').toLowerCase())),
 };
