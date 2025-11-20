@@ -1,0 +1,123 @@
+/* ================================================
+   INDEX.CSS - Base de estilos para PilarisControl
+   ================================================ */
+
+/* Reset básico */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Fontes e corpo */
+html, body {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  height: 100%;
+  width: 100%;
+  background-color: var(--color-brand-bg, #f7f9f8);
+  color: #1f2937; /* padrão texto escuro */
+}
+
+/* Scrollbars personalizadas */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+
+/* Links */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Botões */
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font: inherit;
+}
+
+/* Inputs e selects */
+input, select, textarea {
+  font: inherit;
+  outline: none;
+  border: 1px solid #d1d5db; /* gray-300 */
+  border-radius: 4px;
+  padding: 0.5rem;
+  background-color: white;
+  color: #1f2937;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--color-brand-primary, #4a5c58);
+  box-shadow: 0 0 0 2px rgba(74,92,88,0.2);
+}
+
+/* Headings */
+h1,h2,h3,h4,h5,h6 {
+  font-weight: 600;
+  color: #111827; /* gray-900 */
+}
+
+/* Paragraphs */
+p {
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+/* Containers */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Links e botões com cor da marca */
+.text-brand-primary {
+  color: var(--color-brand-primary, #4a5c58);
+}
+.bg-brand-primary {
+  background-color: var(--color-brand-primary, #4a5c58);
+}
+.text-brand-secondary {
+  color: var(--color-brand-secondary, #8aa39b);
+}
+.bg-brand-secondary {
+  background-color: var(--color-brand-secondary, #8aa39b);
+}
+
+/* Modo Dark */
+html.dark {
+  background-color: #111827;
+  color: #f3f4f6;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #f3f4f6;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(255,255,255,0.2);
+}
+
+/* Links e Botões Dark */
+html.dark .text-brand-primary {
+  color: var(--color-brand-primary, #4a5c58);
+}
+html.dark .bg-brand-primary {
+  background-color: var(--color-brand-primary, #4a5c58);
+}
