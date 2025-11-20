@@ -4,7 +4,8 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  root: '.', // Define a raiz como o diretório atual
+  base: './',        // 👈 OBRIGATÓRIO PARA GITHUB PAGES
+  root: '.',         // ok
   build: {
     outDir: 'dist',
   },
