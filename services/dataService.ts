@@ -18,7 +18,6 @@ async function loadData<T>(tableName: string, localKey: string, initialData: T):
         try {
             const { data, error } = await supabase.from(tableName).select('*');
             if (error) throw error;
-
             if (data && data.length > 0) return data as unknown as T;
         } catch (err) {
             console.warn(`Erro ao carregar ${tableName} da nuvem, tentando local...`, err);
@@ -50,7 +49,6 @@ async function saveData(tableName: string, localKey: string, data: any[], format
                 if (upsertError) throw upsertError;
             }
 
-            // Delete automático (exceto classes)
             if (tableName !== 'classes') {
                 const { data: dbData, error: fetchError } = await supabase.from(tableName).select('id');
                 if (fetchError) throw fetchError;
@@ -128,7 +126,6 @@ export const dataService = {
         role: item.role ?? 'admin',
     })),
 
-    // --- Funções de filtro seguras ---
     filterAdminsByRole: (admins: AdminUser[], role: string) =>
         admins.filter(admin => (admin.role ?? '').toLowerCase() === (role ?? '').toLowerCase()),
 
