@@ -25,7 +25,6 @@ async function loadData<T>(tableName: string, localKey: string, initialData: T):
         }
     }
 
-    // fallback local
     try {
         const item = window.localStorage.getItem(localKey);
         return item ? JSON.parse(item) : initialData;
@@ -37,14 +36,12 @@ async function loadData<T>(tableName: string, localKey: string, initialData: T):
 
 // --- FUNÇÃO GENÉRICA PARA SALVAR DADOS ---
 async function saveData(tableName: string, localKey: string, data: any[], formatFn?: (item: any) => any) {
-    // 1. salva local
     try {
         window.localStorage.setItem(localKey, JSON.stringify(data));
     } catch (e) {
         console.error(`Erro ao salvar LocalStorage (${localKey}):`, e);
     }
 
-    // 2. salva nuvem
     if (isCloudEnabled && supabase) {
         try {
             if (data.length > 0) {
@@ -53,7 +50,6 @@ async function saveData(tableName: string, localKey: string, data: any[], format
                 if (upsertError) throw upsertError;
             }
 
-            // Delete automático (exceto classes que têm lógica diferente)
             if (tableName !== 'classes') {
                 const { data: dbData, error: fetchError } = await supabase.from(tableName).select('id');
                 if (fetchError) throw fetchError;
@@ -131,4 +127,11 @@ export const dataService = {
         role: item.role ?? 'admin',
         email: item.email ?? '',
     })),
+
+    // --- Exemplo seguro de filtro com toLowerCase ---
+    filterAdminsByRole: (admins: AdminUser[], role: string) =>
+        admins.filter(admin => (admin.role ?? '').toLowerCase() === role.toLowerCase()),
+
+    filterStudentsByName: (students: Student[], name: string) =>
+        students.filter(student => (student.name ?? '').toLowerCase().includes(name.toLowerCase())),
 };
