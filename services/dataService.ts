@@ -122,13 +122,12 @@ export const dataService = {
 
     getAdmins: (initial: AdminUser[]) => loadData<AdminUser[]>('admins', KEYS.ADMINS, initial),
     saveAdmins: (data: AdminUser[]) => saveData('admins', KEYS.ADMINS, data, item => ({
-        id: item.id ?? 0,
         name: item.name ?? '',
         role: item.role ?? 'admin',
         email: item.email ?? '',
     })),
 
-    // --- Exemplo seguro de filtro com toLowerCase ---
+    // --- Funções de filtro seguras ---
     filterAdminsByRole: (admins: AdminUser[], role: string) =>
         admins.filter(admin => (admin.role ?? '').toLowerCase() === role.toLowerCase()),
 
