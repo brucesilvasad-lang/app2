@@ -12,72 +12,6 @@ const KEYS = {
     ADMINS: 'pilates_admins',
 };
 
-// --- SANITIZAÇÃO ---
-function sanitizeAdmins(admins: any[]): AdminUser[] {
-    return admins.map(a => ({
-        id: a.id ?? 0,
-        name: a.name ?? '',
-        role: a.role ?? 'admin',
-        email: a.email ?? '',
-    }));
-}
-
-function sanitizeStudents(students: any[]): Student[] {
-    return students.map(s => ({
-        id: s.id ?? 0,
-        name: s.name ?? '',
-        email: s.email ?? '',
-        phone: s.phone ?? '',
-        labels: s.labels ?? [],
-    }));
-}
-
-function sanitizeInstructors(instructors: any[]): Instructor[] {
-    return instructors.map(i => ({
-        id: i.id ?? 0,
-        name: i.name ?? '',
-        email: i.email ?? '',
-        phone: i.phone ?? '',
-    }));
-}
-
-function sanitizeClasses(classes: any[]): Class[] {
-    return classes.map(c => ({
-        id: c.id ?? 0,
-        class_name: c.class_name ?? '',
-        date: c.date ?? '',
-        instructorId: c.instructorId ?? null,
-        enrollments: c.enrollments ?? [],
-        serviceId: c.serviceId ?? null,
-        capacity: c.capacity ?? 0,
-    }));
-}
-
-function sanitizeExpenses(expenses: any[]): Expense[] {
-    return expenses.map(e => ({
-        id: e.id ?? 0,
-        description: e.description ?? '',
-        amount: e.amount ?? 0,
-        date: e.date ?? '',
-    }));
-}
-
-function sanitizeServices(services: any[]): Service[] {
-    return services.map(s => ({
-        id: s.id ?? 0,
-        name: s.name ?? '',
-        price: s.price ?? 0,
-    }));
-}
-
-function sanitizeLabels(labels: any[]): StudentLabel[] {
-    return labels.map(l => ({
-        id: l.id ?? 0,
-        name: l.name ?? '',
-        color: l.color ?? '',
-    }));
-}
-
 // --- FUNÇÃO GENÉRICA PARA CARREGAR DADOS ---
 async function loadData<T>(tableName: string, localKey: string, initialData: T): Promise<T> {
     if (isCloudEnabled && supabase) {
@@ -85,24 +19,12 @@ async function loadData<T>(tableName: string, localKey: string, initialData: T):
             const { data, error } = await supabase.from(tableName).select('*');
             if (error) throw error;
 
-            if (data && data.length > 0) {
-                switch (tableName) {
-                    case 'admins': return sanitizeAdmins(data) as unknown as T;
-                    case 'students': return sanitizeStudents(data) as unknown as T;
-                    case 'instructors': return sanitizeInstructors(data) as unknown as T;
-                    case 'classes': return sanitizeClasses(data) as unknown as T;
-                    case 'expenses': return sanitizeExpenses(data) as unknown as T;
-                    case 'services': return sanitizeServices(data) as unknown as T;
-                    case 'student_labels': return sanitizeLabels(data) as unknown as T;
-                    default: return data as unknown as T;
-                }
-            }
+            if (data && data.length > 0) return data as unknown as T;
         } catch (err) {
             console.warn(`Erro ao carregar ${tableName} da nuvem, tentando local...`, err);
         }
     }
 
-    // fallback local
     try {
         const item = window.localStorage.getItem(localKey);
         return item ? JSON.parse(item) : initialData;
@@ -114,12 +36,14 @@ async function loadData<T>(tableName: string, localKey: string, initialData: T):
 
 // --- FUNÇÃO GENÉRICA PARA SALVAR DADOS ---
 async function saveData(tableName: string, localKey: string, data: any[], formatFn?: (item: any) => any) {
+    // 1. Salva local
     try {
         window.localStorage.setItem(localKey, JSON.stringify(data));
     } catch (e) {
         console.error(`Erro ao salvar LocalStorage (${localKey}):`, e);
     }
 
+    // 2. Salva na nuvem
     if (isCloudEnabled && supabase) {
         try {
             if (data.length > 0) {
@@ -128,6 +52,7 @@ async function saveData(tableName: string, localKey: string, data: any[], format
                 if (upsertError) throw upsertError;
             }
 
+            // Delete automático (exceto classes)
             if (tableName !== 'classes') {
                 const { data: dbData, error: fetchError } = await supabase.from(tableName).select('id');
                 if (fetchError) throw fetchError;
@@ -151,26 +76,66 @@ async function saveData(tableName: string, localKey: string, data: any[], format
 
 // --- EXPORTAR API ---
 export const dataService = {
+    // STUDENTS
     getStudents: (initial: Student[]) => loadData<Student[]>('students', KEYS.STUDENTS, initial),
-    saveStudents: (data: Student[]) => saveData('students', KEYS.STUDENTS, data),
+    saveStudents: (data: Student[]) => saveData('students', KEYS.STUDENTS, data, item => ({
+        name: item.name ?? '',
+        email: item.email ?? '',
+        password: item.password ?? '',
+        joinDate: item.joinDate ?? undefined,
+        notes: item.notes ?? '',
+        avatarUrl: item.avatarUrl ?? '',
+        labels: item.labels ?? [],
+    })),
 
+    // INSTRUCTORS
     getInstructors: (initial: Instructor[]) => loadData<Instructor[]>('instructors', KEYS.INSTRUCTORS, initial),
-    saveInstructors: (data: Instructor[]) => saveData('instructors', KEYS.INSTRUCTORS, data),
+    saveInstructors: (data: Instructor[]) => saveData('instructors', KEYS.INSTRUCTORS, data, item => ({
+        name: item.name ?? '',
+        email: item.email ?? '',
+        password: item.password ?? '',
+        phone: item.phone ?? '',
+    })),
 
+    // CLASSES
     getClasses: (initial: Class[]) => loadData<Class[]>('classes', KEYS.CLASSES, initial),
-    saveClasses: (data: Class[]) => saveData('classes', KEYS.CLASSES, data),
+    saveClasses: (data: Class[]) => saveData('classes', KEYS.CLASSES, data, item => ({
+        date: item.date ?? '',
+        instructorId: item.instructorId ?? null,
+        enrollments: item.enrollments ?? [],
+        class_name: item.class_name ?? '',
+        serviceId: item.serviceId ?? null,
+        capacity: item.capacity ?? 0,
+    })),
 
+    // EXPENSES
     getExpenses: (initial: Expense[]) => loadData<Expense[]>('expenses', KEYS.EXPENSES, initial),
-    saveExpenses: (data: Expense[]) => saveData('expenses', KEYS.EXPENSES, data),
+    saveExpenses: (data: Expense[]) => saveData('expenses', KEYS.EXPENSES, data, item => ({
+        description: item.description ?? '',
+        amount: item.amount ?? 0,
+        date: item.date ?? '',
+    })),
 
+    // SERVICES
     getServices: (initial: Service[]) => loadData<Service[]>('services', KEYS.SERVICES, initial),
-    saveServices: (data: Service[]) => saveData('services', KEYS.SERVICES, data),
+    saveServices: (data: Service[]) => saveData('services', KEYS.SERVICES, data, item => ({
+        name: item.name ?? '',
+        price: item.price ?? 0,
+    })),
 
+    // LABELS
     getLabels: (initial: StudentLabel[]) => loadData<StudentLabel[]>('student_labels', KEYS.LABELS, initial),
-    saveLabels: (data: StudentLabel[]) => saveData('student_labels', KEYS.LABELS, data),
+    saveLabels: (data: StudentLabel[]) => saveData('student_labels', KEYS.LABELS, data, item => ({
+        label: item.label ?? '',
+    })),
 
+    // ADMINS
     getAdmins: (initial: AdminUser[]) => loadData<AdminUser[]>('admins', KEYS.ADMINS, initial),
-    saveAdmins: (data: AdminUser[]) => saveData('admins', KEYS.ADMINS, data),
+    saveAdmins: (data: AdminUser[]) => saveData('admins', KEYS.ADMINS, data, item => ({
+        name: item.name ?? '',
+        email: item.email ?? '',
+        role: item.role ?? 'admin',
+    })),
 
     // --- Funções de filtro seguras ---
     filterAdminsByRole: (admins: AdminUser[], role: string) =>
