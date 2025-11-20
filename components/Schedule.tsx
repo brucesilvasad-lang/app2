@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Class, Student, Service, AttendanceStatus, Enrollment } from '../types';
-import { ChevronLeft, ChevronRight, UserPlus, Trash2, Edit, Save, X, Settings2, DollarSign, Lock, CalendarPlus, CalendarX, LayoutGrid, CheckSquare, Square } from 'lucide-react';
+import { ChevronLeft, ChevronRight, UserPlus, Trash2, Settings2, DollarSign, Lock, CalendarPlus, CalendarX, LayoutGrid } from 'lucide-react';
 import Select from 'react-select';
 import makeAnimated from 'react-select/animated';
 import Modal from './Modal';
@@ -60,8 +60,6 @@ const Schedule: React.FC<ScheduleProps> = ({ allDayClasses, students, services, 
         if (targetClass) {
             const service = services.find(s => s.id === serviceId);
             const price = service ? service.price : 0;
-            // If adding a service and no enrollments exist, maybe add 1? No, wait for capacity config.
-            // But for backward compatibility, if I select service, I might want at least 1 slot.
             let newEnrollments = targetClass.enrollments;
             if (serviceId && newEnrollments.length === 0) {
                  newEnrollments = [{ studentId: null, status: AttendanceStatus.PENDING, price }];
@@ -107,16 +105,6 @@ const Schedule: React.FC<ScheduleProps> = ({ allDayClasses, students, services, 
         const targetClass = localDailyClasses.find(c => c.id === hour);
         if(targetClass){
             const newEnrollments = targetClass.enrollments.filter((_, i) => i !== index);
-            handleUpdate({ ...targetClass, enrollments: newEnrollments });
-        }
-    };
-
-    const handlePriceChange = (hour: string, index: number, price: number) => {
-        if (isReadOnly) return;
-        const targetClass = localDailyClasses.find(c => c.id === hour);
-        if (targetClass && !isNaN(price)) {
-            const newEnrollments = [...targetClass.enrollments];
-            newEnrollments[index].price = price;
             handleUpdate({ ...targetClass, enrollments: newEnrollments });
         }
     };
@@ -233,8 +221,6 @@ const Schedule: React.FC<ScheduleProps> = ({ allDayClasses, students, services, 
         } else if (configPeriod === 'month') {
             const currentMonth = startDate.getMonth();
             const d = new Date(startDate);
-            // Start from today until end of month? Or whole month?
-            // Let's do from today until end of current month to avoid messing up past data easily
             while (d.getMonth() === currentMonth) {
                 dates.push(d.toISOString().split('T')[0]);
                 d.setDate(d.getDate() + 1);
@@ -403,7 +389,7 @@ const Schedule: React.FC<ScheduleProps> = ({ allDayClasses, students, services, 
                             </div>
                         )}
                     </div>
-                ))};
+                )})}
             </div>
 
             {/* CONFIGURATION MODAL */}
