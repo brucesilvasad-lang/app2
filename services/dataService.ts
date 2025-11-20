@@ -12,6 +12,72 @@ const KEYS = {
     ADMINS: 'pilates_admins',
 };
 
+// --- SANITIZAÇÃO ---
+function sanitizeAdmins(admins: any[]): AdminUser[] {
+    return admins.map(a => ({
+        id: a.id ?? 0,
+        name: a.name ?? '',
+        role: a.role ?? 'admin',
+        email: a.email ?? '',
+    }));
+}
+
+function sanitizeStudents(students: any[]): Student[] {
+    return students.map(s => ({
+        id: s.id ?? 0,
+        name: s.name ?? '',
+        email: s.email ?? '',
+        phone: s.phone ?? '',
+        labels: s.labels ?? [],
+    }));
+}
+
+function sanitizeInstructors(instructors: any[]): Instructor[] {
+    return instructors.map(i => ({
+        id: i.id ?? 0,
+        name: i.name ?? '',
+        email: i.email ?? '',
+        phone: i.phone ?? '',
+    }));
+}
+
+function sanitizeClasses(classes: any[]): Class[] {
+    return classes.map(c => ({
+        id: c.id ?? 0,
+        class_name: c.class_name ?? '',
+        date: c.date ?? '',
+        instructorId: c.instructorId ?? null,
+        enrollments: c.enrollments ?? [],
+        serviceId: c.serviceId ?? null,
+        capacity: c.capacity ?? 0,
+    }));
+}
+
+function sanitizeExpenses(expenses: any[]): Expense[] {
+    return expenses.map(e => ({
+        id: e.id ?? 0,
+        description: e.description ?? '',
+        amount: e.amount ?? 0,
+        date: e.date ?? '',
+    }));
+}
+
+function sanitizeServices(services: any[]): Service[] {
+    return services.map(s => ({
+        id: s.id ?? 0,
+        name: s.name ?? '',
+        price: s.price ?? 0,
+    }));
+}
+
+function sanitizeLabels(labels: any[]): StudentLabel[] {
+    return labels.map(l => ({
+        id: l.id ?? 0,
+        name: l.name ?? '',
+        color: l.color ?? '',
+    }));
+}
+
 // --- FUNÇÃO GENÉRICA PARA CARREGAR DADOS ---
 async function loadData<T>(tableName: string, localKey: string, initialData: T): Promise<T> {
     if (isCloudEnabled && supabase) {
@@ -19,12 +85,24 @@ async function loadData<T>(tableName: string, localKey: string, initialData: T):
             const { data, error } = await supabase.from(tableName).select('*');
             if (error) throw error;
 
-            if (data && data.length > 0) return data as unknown as T;
+            if (data && data.length > 0) {
+                switch (tableName) {
+                    case 'admins': return sanitizeAdmins(data) as unknown as T;
+                    case 'students': return sanitizeStudents(data) as unknown as T;
+                    case 'instructors': return sanitizeInstructors(data) as unknown as T;
+                    case 'classes': return sanitizeClasses(data) as unknown as T;
+                    case 'expenses': return sanitizeExpenses(data) as unknown as T;
+                    case 'services': return sanitizeServices(data) as unknown as T;
+                    case 'student_labels': return sanitizeLabels(data) as unknown as T;
+                    default: return data as unknown as T;
+                }
+            }
         } catch (err) {
             console.warn(`Erro ao carregar ${tableName} da nuvem, tentando local...`, err);
         }
     }
 
+    // fallback local
     try {
         const item = window.localStorage.getItem(localKey);
         return item ? JSON.parse(item) : initialData;
@@ -74,58 +152,25 @@ async function saveData(tableName: string, localKey: string, data: any[], format
 // --- EXPORTAR API ---
 export const dataService = {
     getStudents: (initial: Student[]) => loadData<Student[]>('students', KEYS.STUDENTS, initial),
-    saveStudents: (data: Student[]) => saveData('students', KEYS.STUDENTS, data, item => ({
-        id: item.id ?? 0,
-        name: item.name ?? '',
-        email: item.email ?? '',
-        phone: item.phone ?? '',
-        labels: item.labels ?? [],
-    })),
+    saveStudents: (data: Student[]) => saveData('students', KEYS.STUDENTS, data),
 
     getInstructors: (initial: Instructor[]) => loadData<Instructor[]>('instructors', KEYS.INSTRUCTORS, initial),
-    saveInstructors: (data: Instructor[]) => saveData('instructors', KEYS.INSTRUCTORS, data, item => ({
-        id: item.id ?? 0,
-        name: item.name ?? '',
-        email: item.email ?? '',
-        phone: item.phone ?? '',
-    })),
+    saveInstructors: (data: Instructor[]) => saveData('instructors', KEYS.INSTRUCTORS, data),
 
     getClasses: (initial: Class[]) => loadData<Class[]>('classes', KEYS.CLASSES, initial),
-    saveClasses: (data: Class[]) => saveData('classes', KEYS.CLASSES, data, item => ({
-        id: item.id ?? 0,
-        date: item.date ?? '',
-        instructorId: item.instructorId ?? null,
-        enrollments: item.enrollments ?? [],
-    })),
+    saveClasses: (data: Class[]) => saveData('classes', KEYS.CLASSES, data),
 
     getExpenses: (initial: Expense[]) => loadData<Expense[]>('expenses', KEYS.EXPENSES, initial),
-    saveExpenses: (data: Expense[]) => saveData('expenses', KEYS.EXPENSES, data, item => ({
-        id: item.id ?? 0,
-        description: item.description ?? '',
-        amount: item.amount ?? 0,
-        date: item.date ?? '',
-    })),
+    saveExpenses: (data: Expense[]) => saveData('expenses', KEYS.EXPENSES, data),
 
     getServices: (initial: Service[]) => loadData<Service[]>('services', KEYS.SERVICES, initial),
-    saveServices: (data: Service[]) => saveData('services', KEYS.SERVICES, data, item => ({
-        id: item.id ?? 0,
-        name: item.name ?? '',
-        price: item.price ?? 0,
-    })),
+    saveServices: (data: Service[]) => saveData('services', KEYS.SERVICES, data),
 
     getLabels: (initial: StudentLabel[]) => loadData<StudentLabel[]>('student_labels', KEYS.LABELS, initial),
-    saveLabels: (data: StudentLabel[]) => saveData('student_labels', KEYS.LABELS, data, item => ({
-        id: item.id ?? 0,
-        name: item.name ?? '',
-        color: item.color ?? '',
-    })),
+    saveLabels: (data: StudentLabel[]) => saveData('student_labels', KEYS.LABELS, data),
 
     getAdmins: (initial: AdminUser[]) => loadData<AdminUser[]>('admins', KEYS.ADMINS, initial),
-    saveAdmins: (data: AdminUser[]) => saveData('admins', KEYS.ADMINS, data, item => ({
-        name: item.name ?? '',
-        role: item.role ?? 'admin',
-        email: item.email ?? '',
-    })),
+    saveAdmins: (data: AdminUser[]) => saveData('admins', KEYS.ADMINS, data),
 
     // --- Funções de filtro seguras ---
     filterAdminsByRole: (admins: AdminUser[], role: string) =>
