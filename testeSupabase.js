@@ -1,4 +1,4 @@
-import { dataService } from './caminho/para/seu/dataService.js'; // ajuste o caminho
+import { dataService } from './services/dataService.js'; // caminho correto
 
 async function testeSupabaseCompleto() {
   try {
@@ -43,5 +43,5 @@ async function testeSupabaseCompleto() {
   }
 }
 
-// Executa o teste
+// Executa o teste automaticamente
 testeSupabaseCompleto();
