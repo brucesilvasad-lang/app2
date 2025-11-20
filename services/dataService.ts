@@ -36,7 +36,7 @@ async function loadData<T>(tableName: string, localKey: string, initialData: T):
 }
 
 // --- FUNÇÃO GENÉRICA PARA SALVAR DADOS ---
-async function saveData(tableName: string, localKey: string, data: any[]) {
+async function saveData(tableName: string, localKey: string, data: any[], formatFn?: (item: any) => any) {
     // 1. salva local
     try {
         window.localStorage.setItem(localKey, JSON.stringify(data));
@@ -48,7 +48,8 @@ async function saveData(tableName: string, localKey: string, data: any[]) {
     if (isCloudEnabled && supabase) {
         try {
             if (data.length > 0) {
-                const { error: upsertError } = await supabase.from(tableName).upsert(data);
+                const upsertData = formatFn ? data.map(formatFn) : data;
+                const { error: upsertError } = await supabase.from(tableName).upsert(upsertData);
                 if (upsertError) throw upsertError;
             }
 
@@ -77,23 +78,57 @@ async function saveData(tableName: string, localKey: string, data: any[]) {
 // --- EXPORTAR API ---
 export const dataService = {
     getStudents: (initial: Student[]) => loadData<Student[]>('students', KEYS.STUDENTS, initial),
-    saveStudents: (data: Student[]) => saveData('students', KEYS.STUDENTS, data),
+    saveStudents: (data: Student[]) => saveData('students', KEYS.STUDENTS, data, item => ({
+        id: item.id,
+        name: item.name,
+        email: item.email,
+        phone: item.phone,
+        labels: item.labels || [],
+    })),
 
     getInstructors: (initial: Instructor[]) => loadData<Instructor[]>('instructors', KEYS.INSTRUCTORS, initial),
-    saveInstructors: (data: Instructor[]) => saveData('instructors', KEYS.INSTRUCTORS, data),
+    saveInstructors: (data: Instructor[]) => saveData('instructors', KEYS.INSTRUCTORS, data, item => ({
+        id: item.id,
+        name: item.name,
+        email: item.email,
+        phone: item.phone,
+    })),
 
     getClasses: (initial: Class[]) => loadData<Class[]>('classes', KEYS.CLASSES, initial),
-    saveClasses: (data: Class[]) => saveData('classes', KEYS.CLASSES, data),
+    saveClasses: (data: Class[]) => saveData('classes', KEYS.CLASSES, data, item => ({
+        id: item.id,
+        date: item.date,
+        instructorId: item.instructorId,
+        enrollments: item.enrollments || [],
+    })),
 
     getExpenses: (initial: Expense[]) => loadData<Expense[]>('expenses', KEYS.EXPENSES, initial),
-    saveExpenses: (data: Expense[]) => saveData('expenses', KEYS.EXPENSES, data),
+    saveExpenses: (data: Expense[]) => saveData('expenses', KEYS.EXPENSES, data, item => ({
+        id: item.id,
+        name: item.name,
+        amount: item.amount,
+        date: item.date,
+    })),
 
     getServices: (initial: Service[]) => loadData<Service[]>('services', KEYS.SERVICES, initial),
-    saveServices: (data: Service[]) => saveData('services', KEYS.SERVICES, data),
+    saveServices: (data: Service[]) => saveData('services', KEYS.SERVICES, data, item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+    })),
 
     getLabels: (initial: StudentLabel[]) => loadData<StudentLabel[]>('student_labels', KEYS.LABELS, initial),
-    saveLabels: (data: StudentLabel[]) => saveData('student_labels', KEYS.LABELS, data),
+    saveLabels: (data: StudentLabel[]) => saveData('student_labels', KEYS.LABELS, data, item => ({
+        id: item.id,
+        name: item.name,
+        color: item.color,
+    })),
 
     getAdmins: (initial: AdminUser[]) => loadData<AdminUser[]>('admins', KEYS.ADMINS, initial),
-    saveAdmins: (data: AdminUser[]) => saveData('admins', KEYS.ADMINS, data),
+    saveAdmins: (data: AdminUser[]) => saveData('admins', KEYS.ADMINS, data, item => ({
+        id: item.id,
+        name: item.name,
+        role: item.role,
+        email: item.email,
+    })),
 };
